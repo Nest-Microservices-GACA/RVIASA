@@ -1,87 +1,54 @@
-import { Injectable } from '@nestjs/common';
-import { RpcException } from '@nestjs/microservices';
-import { HttpStatus } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import * as fsExtra from 'fs-extra';
 import { join } from 'path';
-import { CreateSanitizacionDto } from './dto/create-sanitizacion.dto';
-import { Multer } from 'multer';
-import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class SanitizacionService {
-  private readonly sanitizacionPath = '/sanitizacion/projects';
+  private readonly sanitizacionPath = '/sysx/bito/projects';
 
-  async create(createDto: CreateSanitizacionDto, zipFile: Multer.File, pdfFile?: Multer.File) {
-    const uniqueTempFolderName = `temp-${uuid()}`;
-    const tempFolderPath = join(zipFile.destination, uniqueTempFolderName);
-    const tempZipPath = join(tempFolderPath, zipFile.filename);
+  async verify(createSanitizacionDto: {
+    iduProject: string;
+    zipFileName: string;
+    pdfFileName: string;
+    csvFileName: string;
+  }) {
+    const { iduProject, zipFileName, pdfFileName, csvFileName } = createSanitizacionDto;
+
+    const zipPath = join(this.sanitizacionPath, zipFileName);
+    const extractedFolderPath = zipPath.replace('.zip', '');
 
     try {
-      if (!pdfFile) {
-        throw new RpcException({
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Archivo PDF es obligatorio para la sanitización',
-        });
+      // Verificar que el archivo ZIP exista
+      if (!await fsExtra.pathExists(zipPath)) {
+        throw new BadRequestException(`El archivo ZIP no existe en la ruta: ${zipPath}`);
       }
 
-      await fsExtra.ensureDir(tempFolderPath);
-      await fsExtra.move(zipFile.path, tempZipPath);
-
-      // Verifica si el archivo ZIP se movió correctamente
-      const fileExists = await fsExtra.pathExists(tempZipPath);
-      if (!fileExists) {
-        throw new RpcException({
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: `El archivo ZIP no se movió correctamente a ${tempZipPath}`,
-        });
+      // Verificar que la carpeta descomprimida exista
+      if (!await fsExtra.pathExists(extractedFolderPath)) {
+        throw new BadRequestException(`La carpeta descomprimida no existe en la ruta: ${extractedFolderPath}`);
       }
 
-      // Crear carpeta para sanitización
-      const sanitizationFolder = join(this.sanitizacionPath, `sanitized-${uuid()}`);
-      await fsExtra.ensureDir(sanitizationFolder);
+      // Verificar que el archivo PDF esté dentro de la carpeta descomprimida
+      const pdfPath = join(extractedFolderPath, pdfFileName);
+      if (!await fsExtra.pathExists(pdfPath)) {
+        throw new BadRequestException(`El archivo PDF no existe en la ruta: ${pdfPath}`);
+      }
 
-      // Procesar el archivo ZIP
-      await this.processZipFile(tempZipPath, sanitizationFolder);
-
-      // Procesar el archivo PDF
-      const pdfPath = await this.processPdfFile(pdfFile, sanitizationFolder);
+      // Verificar que el archivo CSV esté dentro de la carpeta descomprimida
+      const csvPath = join(extractedFolderPath, csvFileName);
+      if (!await fsExtra.pathExists(csvPath)) {
+        throw new BadRequestException(`El archivo CSV no existe en la ruta: ${csvPath}`);
+      }
 
       return {
-        message: 'Sanitización completada con éxito',
-        sanitizationFolder,
+        message: 'Todos los archivos requeridos están presentes.',
+        extractedFolderPath,
         pdfPath,
+        csvPath,
       };
     } catch (error) {
-      await fsExtra.remove(tempFolderPath);
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: `Error durante la sanitización: ${error.message}`,
-      });
-    }
-  }
-
-  private async processZipFile(zipPath: string, outputPath: string) {
-    try {
-      // Simular descompresión
-      await fsExtra.copy(zipPath, join(outputPath, 'unzipped'));
-    } catch (error) {
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: `Error al descomprimir el archivo ZIP: ${error.message}`,
-      });
-    }
-  }
-
-  private async processPdfFile(pdfFile: Multer.File, outputPath: string): Promise<string> {
-    const pdfDestination = join(outputPath, pdfFile.filename);
-    try {
-      await fsExtra.move(pdfFile.path, pdfDestination);
-      return pdfDestination;
-    } catch (error) {
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: `Error al mover el archivo PDF: ${error.message}`,
-      });
+      console.error('Error durante la verificación:', error.message);
+      throw new InternalServerErrorException(`Error durante la verificación: ${error.message}`);
     }
   }
 }

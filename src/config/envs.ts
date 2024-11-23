@@ -24,5 +24,5 @@ export const envs = {
     password: envVars.DB_PASSWORD,
     database: envVars.DB_NAME,
   },
-  port: +envVars.PORT || 3001,
+  port: +envVars.PORT || 3003,
 };

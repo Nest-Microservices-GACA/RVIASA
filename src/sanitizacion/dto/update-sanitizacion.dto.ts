@@ -1,6 +1,6 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateSanitizacionDto } from './create-sanitizacion.dto';
-
-export class UpdateSanitizacionDto extends PartialType(CreateSanitizacionDto) {
+export class UpdateSanitizacionDto {
   id: number;
+  iduProject?: string;
+  zipFileName?: string;
+  pdfFileName?: string;
 }

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SanitizacionModule } from './sanitizacion/sanitizacion.module';
+import { SanitizacionModule } from './sanitizacion/sanitizacion.module'; // Ruta correcta al módulo de sanitización
 import { envs } from './config/envs';
 
 @Module({
@@ -19,7 +19,7 @@ import { envs } from './config/envs';
       autoLoadEntities: true,
       synchronize: false,
     }),
-    SanitizacionModule,
+    SanitizacionModule, 
   ],
   controllers: [],
   providers: [],
