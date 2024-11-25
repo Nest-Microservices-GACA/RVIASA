@@ -1,54 +1,126 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
-import * as fsExtra from 'fs-extra';
-import { join } from 'path';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { CreateSanitizacionDto } from './dto/create-sanitizacion.dto';
+import { UpdateSanitizacionDto } from './dto/update-sanitizacion.dto';
 
 @Injectable()
 export class SanitizacionService {
-  private readonly sanitizacionPath = '/sysx/bito/projects';
+  private sanitizaciones: any[] = []; 
 
-  async verify(createSanitizacionDto: {
-    iduProject: string;
-    zipFileName: string;
-    pdfFileName: string;
-    csvFileName: string;
-  }) {
-    const { iduProject, zipFileName, pdfFileName, csvFileName } = createSanitizacionDto;
+  private encryptionService = {
+    encrypt: (data: string) => (data ? Buffer.from(data).toString('base64') : null),
+    decrypt: (data: string) => (data ? Buffer.from(data, 'base64').toString('utf8') : null),
+  };
 
-    const zipPath = join(this.sanitizacionPath, zipFileName);
-    const extractedFolderPath = zipPath.replace('.zip', '');
+  create(createSanitizacionDto: CreateSanitizacionDto, num_accion: number) {
+    const { iduProject, zipFileName, pdfFileName, csvFileName, nom_aplicacion } = createSanitizacionDto;
+
+    if (!iduProject || !zipFileName || !pdfFileName || !csvFileName || !nom_aplicacion) {
+      throw new BadRequestException(
+        'Todos los campos (iduProject, zipFileName, pdfFileName, csvFileName, nom_aplicacion) son obligatorios.',
+      );
+    }
 
     try {
-      // Verificar que el archivo ZIP exista
-      if (!await fsExtra.pathExists(zipPath)) {
-        throw new BadRequestException(`El archivo ZIP no existe en la ruta: ${zipPath}`);
-      }
+      if (num_accion === 2) {
+        const nuevaSanitizacion = {
+          id: this.sanitizaciones.length + 1,
+          iduProject,
+          zipFileName: this.encryptionService.encrypt(zipFileName),
+          pdfFileName: this.encryptionService.encrypt(pdfFileName),
+          csvFileName: this.encryptionService.encrypt(csvFileName),
+          nom_aplicacion: this.encryptionService.encrypt(nom_aplicacion),
+          num_accion,
+        };
 
-      // Verificar que la carpeta descomprimida exista
-      if (!await fsExtra.pathExists(extractedFolderPath)) {
-        throw new BadRequestException(`La carpeta descomprimida no existe en la ruta: ${extractedFolderPath}`);
-      }
+        this.sanitizaciones.push(nuevaSanitizacion);
 
-      // Verificar que el archivo PDF esté dentro de la carpeta descomprimida
-      const pdfPath = join(extractedFolderPath, pdfFileName);
-      if (!await fsExtra.pathExists(pdfPath)) {
-        throw new BadRequestException(`El archivo PDF no existe en la ruta: ${pdfPath}`);
+        return {
+          message: 'Sanitización creada correctamente',
+          sanitizacion: {
+            ...nuevaSanitizacion,
+            zipFileName: this.encryptionService.decrypt(nuevaSanitizacion.zipFileName),
+            pdfFileName: this.encryptionService.decrypt(nuevaSanitizacion.pdfFileName),
+            csvFileName: this.encryptionService.decrypt(nuevaSanitizacion.csvFileName),
+            nom_aplicacion: this.encryptionService.decrypt(nuevaSanitizacion.nom_aplicacion),
+          },
+        };
+      } else {
+        throw new BadRequestException(`Acción num_accion ${num_accion} no implementada.`);
       }
+    } catch (error) {
+      throw new BadRequestException(`Error al crear la sanitización: ${error.message}`);
+    }
+  }
 
-      // Verificar que el archivo CSV esté dentro de la carpeta descomprimida
-      const csvPath = join(extractedFolderPath, csvFileName);
-      if (!await fsExtra.pathExists(csvPath)) {
-        throw new BadRequestException(`El archivo CSV no existe en la ruta: ${csvPath}`);
-      }
+  findAll() {
+    return this.sanitizaciones.map((sanitizacion) => ({
+      ...sanitizacion,
+      zipFileName: this.encryptionService.decrypt(sanitizacion.zipFileName),
+      pdfFileName: this.encryptionService.decrypt(sanitizacion.pdfFileName),
+      csvFileName: this.encryptionService.decrypt(sanitizacion.csvFileName),
+      nom_aplicacion: this.encryptionService.decrypt(sanitizacion.nom_aplicacion),
+    }));
+  }
+
+  findOne(id: number) {
+    const sanitizacion = this.sanitizaciones.find((item) => item.id === id);
+
+    if (!sanitizacion) {
+      throw new NotFoundException(`Sanitización con ID ${id} no encontrada`);
+    }
+
+    return {
+      ...sanitizacion,
+      zipFileName: this.encryptionService.decrypt(sanitizacion.zipFileName),
+      pdfFileName: this.encryptionService.decrypt(sanitizacion.pdfFileName),
+      csvFileName: this.encryptionService.decrypt(sanitizacion.csvFileName),
+      nom_aplicacion: this.encryptionService.decrypt(sanitizacion.nom_aplicacion),
+    };
+  }
+
+  update(id: number, updateSanitizacionDto: UpdateSanitizacionDto, num_accion: number) {
+    const sanitizacionIndex = this.sanitizaciones.findIndex((item) => item.id === id);
+
+    if (sanitizacionIndex === -1) {
+      throw new NotFoundException(`Sanitización con ID ${id} no encontrada`);
+    }
+
+    if (num_accion === 2) {
+      const sanitizacion = this.sanitizaciones[sanitizacionIndex];
+
+      const actualizada = {
+        ...sanitizacion,
+        ...updateSanitizacionDto,
+        zipFileName: this.encryptionService.encrypt(updateSanitizacionDto.zipFileName || sanitizacion.zipFileName),
+        pdfFileName: this.encryptionService.encrypt(updateSanitizacionDto.pdfFileName || sanitizacion.pdfFileName),
+        csvFileName: this.encryptionService.encrypt(updateSanitizacionDto.csvFileName || sanitizacion.csvFileName),
+      };
+
+      this.sanitizaciones[sanitizacionIndex] = actualizada;
 
       return {
-        message: 'Todos los archivos requeridos están presentes.',
-        extractedFolderPath,
-        pdfPath,
-        csvPath,
+        message: 'Sanitización actualizada correctamente',
+        sanitizacion: {
+          ...actualizada,
+          zipFileName: this.encryptionService.decrypt(actualizada.zipFileName),
+          pdfFileName: this.encryptionService.decrypt(actualizada.pdfFileName),
+          csvFileName: this.encryptionService.decrypt(actualizada.csvFileName),
+        },
       };
-    } catch (error) {
-      console.error('Error durante la verificación:', error.message);
-      throw new InternalServerErrorException(`Error durante la verificación: ${error.message}`);
+    } else {
+      throw new BadRequestException(`Acción num_accion ${num_accion} no soportada en actualización.`);
     }
+  }
+
+  remove(id: number) {
+    const sanitizacionIndex = this.sanitizaciones.findIndex((item) => item.id === id);
+
+    if (sanitizacionIndex === -1) {
+      throw new NotFoundException(`Sanitización con ID ${id} no encontrada`);
+    }
+
+    this.sanitizaciones.splice(sanitizacionIndex, 1);
+
+    return { message: `Sanitización con ID ${id} eliminada correctamente` };
   }
 }
