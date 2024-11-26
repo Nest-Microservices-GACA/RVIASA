@@ -11,18 +11,18 @@ export class SanitizacionController {
   constructor(private readonly sanitizacionService: SanitizacionService) {}
 
   @MessagePattern('createSanitizacion')
-async create(@Payload() createSanitizacionDto: CreateSanitizacionDto) {
-  try {
-    const num_accion = 2; // Para sanitización, num_accion es 2
-    this.logger.log(`Datos recibidos para crear sanitización: ${JSON.stringify(createSanitizacionDto)}`);
-    const result = await this.sanitizacionService.create(createSanitizacionDto, num_accion);
-    this.logger.log(`Sanitización creada exitosamente: ${JSON.stringify(result)}`);
-    return result;
-  } catch (error) {
-    this.logger.error(`Error al crear sanitización: ${error.message}`, error.stack);
-    throw error;
+  async create(@Payload() createSanitizacionDto: CreateSanitizacionDto) {
+    try {
+      this.logger.log(`Datos recibidos para crear sanitización: ${JSON.stringify(createSanitizacionDto)}`);
+      const result = await this.sanitizacionService.create(createSanitizacionDto);
+      this.logger.log(`Sanitización creada exitosamente: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error al crear sanitización: ${error.message}`, error.stack);
+      throw error;
+    }
   }
-}
+
   @MessagePattern('findAllSanitizacion')
   async findAll() {
     try {
@@ -52,9 +52,8 @@ async create(@Payload() createSanitizacionDto: CreateSanitizacionDto) {
   @MessagePattern('updateSanitizacion')
   async update(@Payload() updateSanitizacionDto: UpdateSanitizacionDto) {
     try {
-      const num_accion = 2; // Para sanitización, num_accion es 2
       this.logger.log(`Recibiendo solicitud para actualizar sanitización: ${JSON.stringify(updateSanitizacionDto)}`);
-      const result = await this.sanitizacionService.update(updateSanitizacionDto.id, updateSanitizacionDto, num_accion);
+      const result = await this.sanitizacionService.update(updateSanitizacionDto.id, updateSanitizacionDto);
       this.logger.log(`Sanitización actualizada exitosamente: ${JSON.stringify(result)}`);
       return result;
     } catch (error) {
