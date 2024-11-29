@@ -67,13 +67,8 @@ export class SanitizacionService {
         this.sanitizaciones.push(nuevaSanitizacion);
 
         return {
-          starter: true,
-          message: 'Sanitización creada correctamente',
-          sanitizacion: {
-            idu_proyecto: nuevaSanitizacion.idu_proyecto,
-            numero_empleado: nuevaSanitizacion.numero_empleado,
-            path_project: this.encryptionService.decrypt(nuevaSanitizacion.path_project),
-          },
+          isProcessStarted: true,
+          message: 'Proceso IA Iniciado Correctamente',
         };
       } else {
         throw new BadRequestException(`Acción num_accion ${num_accion} no implementada.`);
